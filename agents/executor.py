@@ -1,5 +1,7 @@
 """Core agent pipeline orchestrating tool bindings, parsing, and execution."""
 
+import asyncio
+
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -106,6 +108,17 @@ def _build_fallback_response(
     )
 
 
+def _is_rate_limited_error(error: Exception) -> bool:
+    """Identify provider throttling responses that should be retried."""
+    err = str(error).lower()
+    return (
+        "429" in err
+        or "rate-limited upstream" in err
+        or "rate limit" in err
+        or "too many requests" in err
+    )
+
+
 async def orchestrate_chat(
     message: str,
     thread_id: str,
@@ -126,54 +139,63 @@ async def orchestrate_chat(
     last_error = None
 
     for model_id in get_model_candidates(task_type):
-        try:
-            llm = get_llm(task_type, model_override=model_id)
+        attempts = max(settings.OPENROUTER_RETRY_ATTEMPTS, 0) + 1
 
-            if has_image:
-                message_payload = build_vision_message(image_bytes=image_bytes, user_text=message)
-                result = await llm.ainvoke([message_payload])
-                parsed = base_parser.parse(result.content)
-                _save_turn(thread_id, message, parsed.content)
-                return parsed
+        for attempt in range(attempts):
+            try:
+                llm = get_llm(task_type, model_override=model_id)
 
-            tools = [build_weather_tool()]
+                if has_image:
+                    message_payload = build_vision_message(image_bytes=image_bytes, user_text=message)
+                    result = await llm.ainvoke([message_payload])
+                    parsed = base_parser.parse(result.content)
+                    _save_turn(thread_id, message, parsed.content)
+                    return parsed
 
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", SYSTEM_PROMPT),
-                MessagesPlaceholder(variable_name="history"),
-                ("human", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ])
+                tools = [build_weather_tool()]
 
-            agent = create_tool_calling_agent(llm, tools, prompt)
-            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+                prompt = ChatPromptTemplate.from_messages([
+                    ("system", SYSTEM_PROMPT),
+                    MessagesPlaceholder(variable_name="history"),
+                    ("human", "{input}"),
+                    MessagesPlaceholder(variable_name="agent_scratchpad"),
+                ])
 
-            chain_with_history = RunnableWithMessageHistory(
-                agent_executor,
-                get_session_history,
-                input_messages_key="input",
-                history_messages_key="history",
-            )
+                agent = create_tool_calling_agent(llm, tools, prompt)
+                agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-            response = await chain_with_history.ainvoke(
-                {
-                    "input": message,
-                    "user_name": getattr(user_profile, "name", "Guest"),
-                    "user_city": getattr(user_profile, "city", "Unknown"),
-                    "user_lat": getattr(user_profile, "lat", 0.0),
-                    "user_lon": getattr(user_profile, "lon", 0.0),
-                    "user_timezone": getattr(user_profile, "timezone", "UTC"),
-                    "user_lang": getattr(user_profile, "language", "en"),
-                    "unit_system": getattr(user_profile, "unit_system", "metric"),
-                    "persona": persona_prompt,
-                    "format_instructions": base_parser.get_format_instructions(),
-                },
-                config={"configurable": {"session_id": thread_id}},
-            )
+                chain_with_history = RunnableWithMessageHistory(
+                    agent_executor,
+                    get_session_history,
+                    input_messages_key="input",
+                    history_messages_key="history",
+                )
 
-            return base_parser.parse(response["output"])
-        except Exception as exc:
-            last_error = exc
+                response = await chain_with_history.ainvoke(
+                    {
+                        "input": message,
+                        "user_name": getattr(user_profile, "name", "Guest"),
+                        "user_city": getattr(user_profile, "city", "Unknown"),
+                        "user_lat": getattr(user_profile, "lat", 0.0),
+                        "user_lon": getattr(user_profile, "lon", 0.0),
+                        "user_timezone": getattr(user_profile, "timezone", "UTC"),
+                        "user_lang": getattr(user_profile, "language", "en"),
+                        "unit_system": getattr(user_profile, "unit_system", "metric"),
+                        "persona": persona_prompt,
+                        "format_instructions": base_parser.get_format_instructions(),
+                    },
+                    config={"configurable": {"session_id": thread_id}},
+                )
+
+                return base_parser.parse(response["output"])
+            except Exception as exc:
+                last_error = exc
+                should_retry = _is_rate_limited_error(exc) and attempt < attempts - 1
+                if should_retry:
+                    wait_seconds = settings.OPENROUTER_RETRY_BASE_DELAY_SECONDS * (2**attempt)
+                    await asyncio.sleep(wait_seconds)
+                    continue
+                break
 
     fallback = _build_fallback_response(message, user_profile, has_image, error=last_error)
     _save_turn(thread_id, message, fallback.content)

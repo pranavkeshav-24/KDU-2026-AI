@@ -8,6 +8,11 @@ from config import settings
 from models.schemas import ChatRequest
 
 
+def _parse_model_list(raw_models: str) -> list[str]:
+    """Parse comma-separated model IDs from env settings."""
+    return [model.strip() for model in raw_models.split(",") if model.strip()]
+
+
 def classify_task(payload: ChatRequest, has_image: bool = False) -> str:
     """
     Lightweight heuristic pass to classify user intent without an LLM hop.
@@ -66,7 +71,11 @@ def get_model_candidates(task: str) -> list[str]:
         "structured": settings.STRUCTURED_MODEL,
     }
 
-    candidates = [task_model_map.get(task, settings.REASONING_MODEL), settings.FALLBACK_MODEL]
+    candidates = [
+        task_model_map.get(task, settings.REASONING_MODEL),
+        settings.FALLBACK_MODEL,
+        *_parse_model_list(settings.MODEL_FALLBACKS),
+    ]
     deduped = []
     for candidate in candidates:
         if candidate and candidate not in deduped:

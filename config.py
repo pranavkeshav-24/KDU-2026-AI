@@ -1,4 +1,4 @@
-""""Settings management for the Multimodal AI Assistant."""
+"""Settings management for the Multimodal AI Assistant."""
 
 from typing import Literal
 
@@ -7,28 +7,30 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # LLM Gateway
-    OPENROUTER_API_KEY: str = "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"
-    OPENROUTER_SITE_URL: str = "http://127.0.0.1:8001"
-    OPENROUTER_APP_NAME: str = "KDU-2026-AI"
+    OPENROUTER_API_KEY: str
+    OPENROUTER_SITE_URL: str
+    OPENROUTER_APP_NAME: str
     
     # Tools
-    OPENWEATHERMAP_API_KEY: str = "0d9bc17bc106e9827acb14050f26f64c"
+    OPENWEATHERMAP_API_KEY: str
     
     # Infrastructure
-    REDIS_URL: str = "redis://localhost:6379"
-    DATABASE_URL: str = "sqlite:///./multimodal_assistant.db"
+    REDIS_URL: str
+    DATABASE_URL: str
     
     # Application Behavior
-    DEFAULT_STYLE: Literal["expert", "child", "casual", "formal"] = "expert"
-    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    DEFAULT_STYLE: Literal["expert", "child", "casual", "formal"]
+    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
     # API model mapping.
-    # These defaults are pinned to live free OpenRouter model IDs verified on April 12, 2026.
-    VISION_MODEL: str = "google/gemma-4-26b-a4b-it:free"
-    REASONING_MODEL: str = "google/gemma-4-26b-a4b-it:free"
-    FAST_MODEL: str = "google/gemma-4-26b-a4b-it:free"
-    STRUCTURED_MODEL: str = "google/gemma-4-26b-a4b-it:free"
-    FALLBACK_MODEL: str = "google/gemma-4-31b-it:free"
+    VISION_MODEL: str
+    REASONING_MODEL: str
+    FAST_MODEL: str
+    STRUCTURED_MODEL: str
+    FALLBACK_MODEL: str
+    MODEL_FALLBACKS: str = ""
+    OPENROUTER_RETRY_ATTEMPTS: int = 2
+    OPENROUTER_RETRY_BASE_DELAY_SECONDS: float = 1.0
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
