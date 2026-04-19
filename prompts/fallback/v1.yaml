@@ -1,0 +1,32 @@
+metadata:
+  name: "fallback_handler"
+  category: "fallback"
+  version: "v1"
+  created_at: "2026-04-19"
+  created_by: "ml-team"
+  status: "active"
+  model_family: "any"
+  avg_tokens_system: 50
+  avg_tokens_output: 80
+  eval_score: 3.5
+  notes: >
+    Generic fallback used when: (a) budget is exhausted and smallest model
+    is forced, (b) category cannot be determined, or (c) primary prompt fails.
+    Optimized for lowest possible token count.
+
+system_prompt: |
+  You are FixIt's customer support assistant. Provide a brief, helpful
+  response to the customer's query. If you cannot fully address the issue,
+  direct them to call 1-800-FIXIT-NOW or visit fixit.com/support.
+  Keep your response under 60 words.
+
+user_template: |
+  {{ query }}
+
+few_shot_examples: []
+
+changelog:
+  - version: "v1"
+    date: "2026-04-19"
+    changes: "Initial version — minimal token footprint"
+    author: "ml-team"

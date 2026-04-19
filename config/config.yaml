@@ -1,0 +1,156 @@
+# FixIt AI Support System — Master Configuration
+# Version: 1.0.0
+# Update this file to change system behavior without code changes.
+#
+# AWS Future Replacement:
+#   This entire file → AWS AppConfig
+#   AppConfig provides versioned configurations, deployment strategies
+#   (canary, linear), and automatic rollback when CloudWatch alarms fire.
+#   Config changes become tracked deployments with full audit trail.
+
+version: "1.0.0"
+environment: "local"  # local | staging | production
+
+# ──────────────────────────────────────────
+# MODEL CONFIGURATION
+# All models served via OpenRouter (https://openrouter.ai)
+# OpenRouter provides unified access to 100+ models with a single API key.
+# All models below are free-tier ($0/M tokens) via OpenRouter.
+#
+# Cost values below are SYMBOLIC (for budget-guard simulation only).
+# Actual OpenRouter charges: $0 for all selected models.
+#
+# AWS Future: Replace openrouter provider with Amazon Bedrock for
+# IAM-based auth, compliance, and no API keys in production.
+# ──────────────────────────────────────────
+models:
+  tier_low:
+    # LiquidAI: LFM2.5-1.2B-Instruct — ultra-fast, 1.2B params, ideal for simple FAQ
+    model_id: "liquid/lfm-2.5-1.2b-instruct:free"
+    provider: "openrouter"
+    temperature: 0.3
+    max_tokens: 256
+    cost_per_1k_input_tokens: 0.0          # free on OpenRouter
+    cost_per_1k_output_tokens: 0.0         # equivalent market rate: ~$0.0002
+
+  tier_medium:
+    # OpenAI: gpt-oss-20b — 21B MoE, 3.6B active params, strong instruction following
+    model_id: "openai/gpt-oss-20b:free"
+    provider: "openrouter"
+    temperature: 0.5
+    max_tokens: 512
+    cost_per_1k_input_tokens: 0.0          # free on OpenRouter
+    cost_per_1k_output_tokens: 0.0         # equivalent market rate: ~$0.0007
+
+  tier_high:
+    # OpenAI: gpt-oss-120b — 120B MoE, 5.1B active params, full reasoning + tool use
+    model_id: "openai/gpt-oss-120b:free"
+    provider: "openrouter"
+    temperature: 0.7
+    max_tokens: 1024
+    cost_per_1k_input_tokens: 0.0          # free on OpenRouter
+    cost_per_1k_output_tokens: 0.0         # equivalent market rate: ~$0.001
+
+  fallback:
+    # LiquidAI: LFM2.5-1.2B-Instruct — same as tier_low, minimal tokens
+    model_id: "liquid/lfm-2.5-1.2b-instruct:free"
+    provider: "openrouter"
+    temperature: 0.2
+    max_tokens: 128
+    cost_per_1k_input_tokens: 0.0
+    cost_per_1k_output_tokens: 0.0
+
+# ──────────────────────────────────────────
+# ROUTING RULES
+# ──────────────────────────────────────────
+routing:
+  low_complexity_threshold: 0.3       # confidence score below this → low
+  high_complexity_threshold: 0.7      # confidence score above this → high
+  max_retries: 2
+  timeout_seconds: 30
+  fallback_on_error: true
+
+  high_complexity_keywords:
+    - "refund"
+    - "complaint"
+    - "didn't show"
+    - "damage"
+    - "lawsuit"
+    - "overcharge"
+    - "never arrived"
+    - "emergency"
+
+  complaint_keywords:
+    - "angry"
+    - "frustrated"
+    - "unacceptable"
+    - "disgusting"
+    - "worst"
+    - "scam"
+
+  booking_keywords:
+    - "reschedule"
+    - "cancel"
+    - "appointment"
+    - "book"
+    - "schedule"
+    - "availability"
+
+  faq_keywords:
+    - "hours"
+    - "price"
+    - "cost"
+    - "how much"
+    - "what is"
+    - "do you"
+    - "can you"
+
+# ──────────────────────────────────────────
+# BUDGET CONSTRAINTS
+# Note: All models are currently free via OpenRouter.
+# Budget guard is configured with symbolic limits to demonstrate
+# the cost-control architecture. In production with paid models,
+# these limits would be enforced with real dollar values.
+#
+# AWS Future: Amazon DynamoDB for atomic cost increments + CloudWatch Budgets
+# ──────────────────────────────────────────
+budget:
+  daily_budget_usd: 16.67            # $500/month ÷ 30
+  monthly_budget_usd: 500.00
+  warning_threshold_pct: 0.80        # Alert at 80% usage
+  hard_limit_pct: 0.95               # Force fallback at 95% usage
+  reset_timezone: "UTC"
+  per_query_max_usd: 0.05            # Hard cap per single query
+
+# ──────────────────────────────────────────
+# FEATURE FLAGS
+# Toggle features without code changes.
+# Set dry_run_mode: false and add OPENROUTER_API_KEY to .env for real LLM calls.
+# ──────────────────────────────────────────
+features:
+  enable_semantic_cache: false        # Phase 2
+  enable_fallback_on_budget: true
+  enable_structured_logging: true
+  enable_cost_tracking: true
+  enable_eval_logging: true
+  dry_run_mode: true                  # Set false + add OPENROUTER_API_KEY for real calls
+
+# ──────────────────────────────────────────
+# PROMPT REGISTRY
+# AWS Future: Amazon S3 + DynamoDB
+# ──────────────────────────────────────────
+prompts:
+  registry_path: "./prompts"
+  default_version: "v1"
+  hot_reload: true                     # Reload prompts on each request (dev only)
+
+# ──────────────────────────────────────────
+# LOGGING & OBSERVABILITY
+# AWS Future: Amazon CloudWatch Logs + CloudWatch Metrics
+# ──────────────────────────────────────────
+logging:
+  level: "INFO"
+  format: "json"
+  output_path: "./logs/fixit_ai.jsonl"
+  include_prompt_in_log: false         # Set true for debugging; never in prod
+  sample_rate: 1.0                     # Log 100% of requests locally; reduce in prod
