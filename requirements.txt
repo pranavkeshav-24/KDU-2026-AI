@@ -1,0 +1,8 @@
+streamlit>=1.35
+openai>=1.30
+pymupdf>=1.24
+transformers>=4.41
+torch>=2.2
+numpy>=1.26
+pytest>=8.0
+
