@@ -1,0 +1,69 @@
+# ============================================================
+# tasks.yaml — CrewAI Research Department Task Configurations
+# Phase 2: All task definitions externalized from code
+# ============================================================
+
+research_task:
+  description: >
+    Research the following topic thoroughly: {topic}
+
+    Use SerperDevTool for web search and attempt deep-dive research with
+    the unreliable_research_tool. If the unreliable tool times out, log
+    the failure and proceed with SerperDevTool results only.
+
+    Your output must be structured JSON with the following fields:
+      - topic: string
+      - key_findings: list of strings (max 5)
+      - sources: list of URLs
+      - confidence_level: float (0.0 to 1.0)
+      - tool_failure_occurred: boolean
+  expected_output: >
+    A concise 3-bullet summary of the key findings, followed by a JSON
+    block containing structured research data. The JSON must include
+    'tool_failure_occurred' to signal downstream agents.
+    # CONTRADICTION: The agent backstory says "breadth over depth" but
+    # this task asks for exactly 3 bullets (depth-limiting constraint).
+    # Resolution: Task expected_output wins — it defines the contract.
+  agent: researcher
+
+fact_check_task:
+  description: >
+    Review the researcher's output and fact-check every factual claim.
+
+    For each claim, use the fact_check_tool and return a structured report:
+      - claims_checked: integer
+      - verdicts: list of {claim, verdict, confidence}
+      - overall_verdict: "PASS" if all VERIFIED, "FAIL" otherwise
+      - recommendation: "PROCEED_TO_WRITING" or "SEND_BACK_TO_RESEARCH"
+
+    The Flow will branch based on 'overall_verdict' to determine next steps.
+    If overall_verdict is FAIL, set recommendation to SEND_BACK_TO_RESEARCH.
+  expected_output: >
+    A JSON object with 'overall_verdict' (PASS/FAIL) and 'recommendation'
+    (PROCEED_TO_WRITING / SEND_BACK_TO_RESEARCH). This is a machine-readable
+    output used by the Flow state machine for routing decisions.
+  agent: fact_checker
+  context:
+    - research_task
+
+write_article_task:
+  description: >
+    Using the verified research and fact-check report, write a complete
+    publication-ready article on: {topic}
+
+    Structure the article as:
+      1. Headline (compelling, accurate)
+      2. Lead paragraph (who/what/when/where/why)
+      3. Body (3-4 paragraphs with key findings)
+      4. Conclusion (implications and next steps)
+
+    Do NOT include any claims marked as CONTRADICTED.
+    Clearly note any UNVERIFIED claims with "[UNVERIFIED]" tags.
+  expected_output: >
+    A complete article in markdown format, 400-600 words, ready for
+    publication. Include a metadata footer with: author=Writer Agent,
+    fact_check_status=PASS, timestamp=<execution_time>.
+  agent: writer
+  context:
+    - research_task
+    - fact_check_task
