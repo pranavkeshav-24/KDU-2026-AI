@@ -1,0 +1,8 @@
+tasks:
+  test:
+    command: "python -m pytest"
+  compile:
+    command: "python -m compileall src tests"
+  demo:
+    command: "python examples/run_simulation.py"
+
