@@ -1,0 +1,78 @@
+{
+  "name": "kdu-customer-service-guardrail",
+  "description": "Example Bedrock Guardrails configuration for customer service safety lab.",
+  "contentPolicyConfig": {
+    "filtersConfig": [
+      {
+        "type": "HATE",
+        "inputStrength": "MEDIUM",
+        "outputStrength": "MEDIUM",
+        "inputAction": "BLOCK",
+        "outputAction": "BLOCK",
+        "inputEnabled": true,
+        "outputEnabled": true
+      },
+      {
+        "type": "INSULTS",
+        "inputStrength": "MEDIUM",
+        "outputStrength": "MEDIUM",
+        "inputAction": "BLOCK",
+        "outputAction": "BLOCK",
+        "inputEnabled": true,
+        "outputEnabled": true
+      },
+      {
+        "type": "SEXUAL",
+        "inputStrength": "MEDIUM",
+        "outputStrength": "MEDIUM",
+        "inputAction": "BLOCK",
+        "outputAction": "BLOCK",
+        "inputEnabled": true,
+        "outputEnabled": true
+      },
+      {
+        "type": "VIOLENCE",
+        "inputStrength": "LOW",
+        "outputStrength": "MEDIUM",
+        "inputAction": "BLOCK",
+        "outputAction": "BLOCK",
+        "inputEnabled": true,
+        "outputEnabled": true
+      },
+      {
+        "type": "PROMPT_ATTACK",
+        "inputStrength": "HIGH",
+        "outputStrength": "NONE",
+        "inputAction": "BLOCK",
+        "outputAction": "NONE",
+        "inputEnabled": true,
+        "outputEnabled": false
+      }
+    ],
+    "tierConfig": {
+      "tierName": "CLASSIC"
+    }
+  },
+  "sensitiveInformationPolicyConfig": {
+    "piiEntitiesConfig": [
+      {
+        "type": "US_SOCIAL_SECURITY_NUMBER",
+        "action": "ANONYMIZE",
+        "inputAction": "ANONYMIZE",
+        "outputAction": "ANONYMIZE",
+        "inputEnabled": true,
+        "outputEnabled": true
+      },
+      {
+        "type": "EMAIL",
+        "action": "ANONYMIZE",
+        "inputAction": "ANONYMIZE",
+        "outputAction": "ANONYMIZE",
+        "inputEnabled": true,
+        "outputEnabled": true
+      }
+    ]
+  },
+  "blockedInputMessaging": "I cannot process that request because it violates the configured safety policy.",
+  "blockedOutputsMessaging": "The response was blocked by the configured safety policy."
+}
